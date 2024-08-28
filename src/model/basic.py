@@ -1,10 +1,11 @@
 #https://arxiv.org/pdf/1707.00722v2
 
+import torch
 import torch.nn as nn
 
-class basic(nn.Module):
+class FinnishLSTM(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, num_classes, dropout_rate=0.2):
-        super(basic, self).__init__()
+        super(FinnishLSTM, self).__init__()
         
         self.lstm1 = nn.LSTM(input_size, hidden_size, batch_first=True)
         self.dropout1 = nn.Dropout(dropout_rate)
@@ -19,7 +20,6 @@ class basic(nn.Module):
         self.dropout4 = nn.Dropout(dropout_rate)
         
         self.fc = nn.Linear(hidden_size, num_classes)
-        self.softmax = nn.Softmax(dim=1)
         
     def forward(self, x):
         x, _ = self.lstm1(x)
@@ -34,10 +34,10 @@ class basic(nn.Module):
         x, _ = self.lstm4(x)
         x = self.dropout4(x)
         
-        x = x[:, -1, :]
-        
+        # Apply the fully connected layer to each time step
         x = self.fc(x)
         
-        x = self.softmax(x)
+        # Apply log_softmax along the character dimension
+        log_probs = torch.log_softmax(x, dim=2)
         
-        return x
+        return log_probs
