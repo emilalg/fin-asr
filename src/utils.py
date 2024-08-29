@@ -6,8 +6,8 @@ class params():
     
     def __init__(self):
         parser = argparse.ArgumentParser(description="Train a speech recognition model on Finnish Common Voice dataset")
-        parser.add_argument('--data_dir', type=str, default='../data/hf', help='Directory for dataset cache')
-        parser.add_argument('--checkpoint_dir', type=str, default='../checkpoints', help='Directory for saving checkpoints')
+        parser.add_argument('--data_dir', type=str, default='data/hf', help='Directory for dataset cache')
+        parser.add_argument('--checkpoint_dir', type=str, default='checkpoints', help='Directory for saving checkpoints')
         parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
         parser.add_argument('--epochs', type=int, default=10, help='Number of epochs to train')
         parser.add_argument('--learning_rate', type=float, default=0.001, help='Learning rate for optimizer')
