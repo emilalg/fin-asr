@@ -8,21 +8,21 @@ from tqdm import tqdm
 from utils import text_to_indices, indices_to_text, params, CHAR_TO_INDEX
 import datasets
 import os
-
 import logging
 
-mel_spectrogram = torchaudio.transforms.MelSpectrogram(
-        sample_rate=44100,
-        n_fft=1024,
-        hop_length=512,
-        n_mels=80
-)
 
 def collate_fn(batch):
     spectrograms = []
     labels = []
     input_lengths = []
     label_lengths = []
+
+    mel_spectrogram = torchaudio.transforms.MelSpectrogram(
+        sample_rate=44100,
+        n_fft=1024,
+        hop_length=512,
+        n_mels=80
+    )
 
     for item in batch:
         waveform = torch.tensor(item['audio']['array'])
@@ -117,8 +117,6 @@ def main():
             token=True,
             trust_remote_code=True
         )
-
-        
 
         train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=collate_fn)
         val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=collate_fn)
