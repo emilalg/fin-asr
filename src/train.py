@@ -120,8 +120,7 @@ def main():
 
     model = FinnishLSTM(
         input_size=40,  # mels
-        hidden_size=256,
-        num_layers=4,
+        hidden_size=512,
         num_classes=alphabet.length,
         dropout_rate=0.2
     ).to(device)
@@ -193,8 +192,6 @@ def main():
             best_val_loss = val_loss
             torch.save(model.state_dict(), f"{args.output}/best_model.pth")
             logging.info(f"New best model saved with validation loss: {val_loss:.4f}")
-
-    
 
 
 

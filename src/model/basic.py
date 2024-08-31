@@ -4,9 +4,8 @@ import torch
 import torch.nn as nn
 
 class FinnishLSTM(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, num_classes, dropout_rate=0.2):
+    def __init__(self, input_size, hidden_size, num_classes, dropout_rate=0.2):
         super(FinnishLSTM, self).__init__()
-        
 
         self.lstm1 = nn.LSTM(input_size, hidden_size, batch_first=True)
         self.dropout1 = nn.Dropout(dropout_rate)
