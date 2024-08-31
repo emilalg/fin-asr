@@ -3,6 +3,7 @@ env
 .env
 
 data/*
+output/*
 
 __pycache__
 *.pyc
