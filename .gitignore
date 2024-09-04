@@ -4,6 +4,8 @@ env
 
 data/*
 output/*
+runs/*
+.vscode/*
 
 __pycache__
 *.pyc

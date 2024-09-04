@@ -28,6 +28,17 @@ class KielipankkiDataset(Dataset):
             
 
             case 'validation':
+
+                for f in glob.glob(f'{data_dir}/dev-test/2016-dev/**/*.wav', recursive=True):
+            
+                    transcript_file = f.replace('.wav', '.trn')
+
+                    self.data.append({
+                        'audio' : f,
+                        'transcript' : transcript_file
+                    })
+                        
+
                 pass
             
 

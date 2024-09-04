@@ -1,7 +1,7 @@
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
-
+from torch.utils.tensorboard.writer import SummaryWriter
 import torch
 
 @dataclass
@@ -15,7 +15,7 @@ class params():
         parser.add_argument('--epochs', type=int, default=50, help='Number of epochs to train')
         parser.add_argument('--learning_rate', type=float, default=0.001, help='Learning rate for optimizer')
         parser.add_argument('--num_workers', type=int, default=4, help='Number of worker processes for data loading')
-        parser.add_argument('--model_name', type=str, default="test", help='Name of the model, used for output destination')
+        parser.add_argument('--model_name', type=str, default="test1", help='Name of the model, used for output destination')
         parser.add_argument('--debug', type=bool, default=False, help='Use debug output + smaller dataset')
         self.args = parser.parse_args()
 
@@ -69,5 +69,18 @@ class alphabet():
 
 class TensorBoardUtils():
 
-    def __init__():
-        
+    def __init__(self, log_dir, debug=False):
+        self.state = debug
+        self.writer = SummaryWriter(log_dir)
+    
+    def log_main(self, loss_t, loss_v, wer, cer, epoch):
+        if not self.state:
+            self.writer.add_scalar('Loss/train', loss_t, epoch)
+            self.writer.add_scalar('Loss/validation', loss_v, epoch)
+            self.writer.add_scalar('WER', wer, epoch)
+            self.writer.add_scalar('CER', cer, epoch)
+            self.writer.flush()
+    
+    def add_sample(self, t1, t2, epoch):
+        if not self.state:
+            self.writer.add_text('Sample', f'Ground truth: {t1}, predicted: {t2}', epoch)

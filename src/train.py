@@ -2,9 +2,12 @@ import logging
 import torch
 import torch.nn as nn
 import torch.utils
-import torchaudio
+import random
 from tqdm import tqdm
+
 from model.basic import FinnishLSTM
+from model.biLSTM import biLSTM
+
 import utils
 from torch.utils.data import DataLoader
 from torch import optim
@@ -13,7 +16,6 @@ from data.huggingface import HuggingFaceDataset
 from data.kielipankki import KielipankkiDataset
 from torch.utils.data import ConcatDataset
 from pywer import wer, cer
-from torch.utils.tensorboard import SummaryWriter
 
 # Data and training loop
 def main(args):
@@ -21,24 +23,34 @@ def main(args):
     logging.info(f"Using device: {device}")
     alphabet = utils.alphabet()
     labels = alphabet.get_labels()
-    metrics = utils.metrics()
+    ts = utils.TensorBoardUtils(f'{args.output}log/', args.debug)
 
-    writer = SummaryWriter()
     hf_datasets = HuggingFaceDataset()
     
     # if debug use small dataset
     if args.debug:
         train_set = hf_datasets.train_dataset
+        val_set = hf_datasets.val_dataset
     else:
-        kp_dataset_train = KielipankkiDataset()
+        kp_dataset_train = KielipankkiDataset(mode='train')
+        kp_dataset_val = KielipankkiDataset(mode='validation')
         train_set = ConcatDataset([hf_datasets.train_dataset, kp_dataset_train])
+        val_set = ConcatDataset([hf_datasets.val_dataset, kp_dataset_val])
 
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=process_universal_audio)
-    val_loader = DataLoader(hf_datasets.val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=process_universal_audio)
+    val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=process_universal_audio)
 
-    model = FinnishLSTM(
-        input_size=40,  # mels
-        hidden_size=512,
+    # model = FinnishLSTM(
+    #     input_size=40,  # mels
+    #     hidden_size=512,
+    #     num_classes=alphabet.length,
+    #     dropout_rate=0.2
+    # ).to(device)
+
+    model = biLSTM(
+        input_dim=40,  # mels
+        hidden_dim=320,
+        num_layers=4,
         num_classes=alphabet.length,
         dropout_rate=0.2
     ).to(device)
@@ -74,7 +86,7 @@ def main(args):
             loss = loss_fn(output, labels, input_lengths, label_lengths)
             loss.backward()
             
-            # clip gradients to prevent a possible gradient explosion
+            # clip gradients
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)  
 
             optimizer.step()
@@ -108,7 +120,12 @@ def main(args):
                 ref = []
                 for label, length in zip(labels, label_lengths):
                     clipped_label = label[:length]  # Clip the label using its length
-                    ref.append(alphabet.indices_to_text(clipped_label))  # No need for strip() here
+                    ref.append(alphabet.indices_to_text(clipped_label))
+
+                # log samples randomly
+                if random.randint(0, 5) == 5:
+                    rs = random.randint(0, len(decoded_text)-1)
+                    ts.add_sample(ref[rs], decoded_text[rs], epoch)
 
                 logging.debug(f' ref {ref} dec {decoded_text}')
                 total_wer += wer(ref, decoded_text)
@@ -125,13 +142,13 @@ def main(args):
         
 
         print_output = f"""
-        \nBeginOutput\n
-        Epoch {epoch+1}/{args.epochs}\n
-        Train Loss: {train_loss:.4f}\n
-        Val Loss: {val_loss:.4f}\n
-        CER: {cer_out}\n
-        WER: {wer_out}\n
-        EndOutput
+        ---
+        Epoch {epoch+1}/{args.epochs}
+        Train Loss: {train_loss:.4f}
+        Val Loss: {val_loss:.4f}
+        CER: {cer_out}
+        WER: {wer_out}
+        ---
         """
         logging.info(print_output)
 
@@ -142,14 +159,9 @@ def main(args):
             logging.info(f"New best model saved with validation loss: {val_loss:.4f}")
         
         # log to tensorboard
-        if !args.debug:
-            writer.add_scalar('Loss/train', train_loss, epoch)
-            writer.add_scalar('Loss/validation', val_loss, epoch)
-            writer.add_scalar('WER', cer_out, epoch)
-            writer.add_scalar('CER', wer_out, epoch)
-            writer.flush()
+        ts.log_main(train_loss, val_loss, wer_out, cer_out, epoch)
+        
 
-    writer.close()
 
 
 
