@@ -12,11 +12,12 @@ class KielipankkiDataset(Dataset):
         self.data = []
 
         match mode:
+
             case 'train' : 
                 # iterate over audio files
                 for f in glob.glob(f'{data_dir}/**/*.wav', recursive=True):
             
-                    # dont include dev test in train set
+                    # dont include dev-test in train set
                     if 'dev-test' not in f:
 
                         transcript_file = f.replace('.wav', '.trn')
@@ -26,7 +27,6 @@ class KielipankkiDataset(Dataset):
                             'transcript' : transcript_file
                         })
             
-
             case 'validation':
 
                 for f in glob.glob(f'{data_dir}/dev-test/2016-dev/**/*.wav', recursive=True):
@@ -37,14 +37,9 @@ class KielipankkiDataset(Dataset):
                         'audio' : f,
                         'transcript' : transcript_file
                     })
-                        
-
-                pass
             
-
             case 'test':
                 pass
-
 
             case _:
                 raise Exception('Dataset mode not properly set')

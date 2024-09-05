@@ -5,7 +5,7 @@ import torch.utils
 import random
 from tqdm import tqdm
 
-from model.basic import FinnishLSTM
+# from model.basic import FinnishLSTM
 from model.biLSTM import biLSTM
 
 import utils
@@ -16,6 +16,95 @@ from data.huggingface import HuggingFaceDataset
 from data.kielipankki import KielipankkiDataset
 from torch.utils.data import ConcatDataset
 from pywer import wer, cer
+
+def train(model, train_loader, device, optimizer, loss_fn, epoch):
+    
+    # set training mode
+    model.train()
+    total_loss = 0
+
+    # run batch and accumulate loss (train)
+    for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{args.epochs} - Training"):
+        spectrograms = batch['spectrograms'].to(device)
+        labels = batch['labels'].to(device)
+        input_lengths = batch['input_lengths'].to(device)
+        label_lengths = batch['label_lengths'].to(device)
+
+        # :)
+        optimizer.zero_grad()
+
+        # forward pass
+        output = model(spectrograms)
+        output = output.transpose(0, 1)
+
+        # compute loss and run backwards pass
+        loss = loss_fn(output, labels, input_lengths, label_lengths)
+        loss.backward()
+        
+        # clip gradients
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)  
+
+        optimizer.step()
+        total_loss += loss.item()
+        
+    train_loss = total_loss / len(train_loader)
+    return train_loss
+
+
+
+
+def validate(model, val_loader, device, epoch, loss_fn, alphabet, scheduler, ts):
+    model.eval()
+
+    total_val_loss = 0
+    total_wer = 0
+    total_cer = 0
+
+    with torch.no_grad():
+        for batch in tqdm(val_loader, desc=f"Epoch {epoch+1}/{args.epochs} - Validation"):
+            spectrograms = batch['spectrograms'].to(device)
+            labels = batch['labels'].to(device)
+            input_lengths = batch['input_lengths'].to(device)
+            label_lengths = batch['label_lengths'].to(device)
+
+            # compute loss
+            output = model(spectrograms)
+            loss = loss_fn(output.transpose(0, 1), labels, input_lengths, label_lengths)
+            total_val_loss += loss.item()
+
+            #decode model output to strings
+            decoded_text = alphabet.greedy_decode(output)
+
+            #compute wer & cer
+            ref = []
+            for label, length in zip(labels, label_lengths):
+                clipped_label = label[:length]  # Clip the label using its length
+                ref.append(alphabet.indices_to_text(clipped_label))
+
+            # log samples randomly
+            if random.randint(0, 4) == 4:
+                rs = random.randint(0, len(decoded_text)-1)
+                ts.add_sample(ref[rs], decoded_text[rs], epoch)
+
+            logging.debug(f' ref {ref} dec {decoded_text}')
+            total_wer += wer(ref, decoded_text)
+            total_cer += cer(ref, decoded_text)
+
+    val_loss = total_val_loss / len(val_loader)
+    cer_out = total_cer / len(val_loader)
+    wer_out = total_wer / len(val_loader)
+    
+    # Update learning rate
+    scheduler.step(val_loss)
+
+    return {
+        'val_loss' : val_loss,
+        'cer' : cer_out,
+        'wer' : wer_out
+    }
+
+
+
 
 # Data and training loop
 def main(args):
@@ -64,82 +153,12 @@ def main(args):
     best_val_loss = float('inf')
     for epoch in range(args.epochs):
 
-        # set training mode
-        model.train()
-        total_loss = 0
+        train_loss = train(model, train_loader, device, optimizer, loss_fn, epoch)
+        val_metrics = validate(model, val_loader, device, epoch, loss_fn, alphabet, scheduler, ts)
 
-        # run batch and accumulate loss (train)
-        for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{args.epochs} - Training"):
-            spectrograms = batch['spectrograms'].to(device)
-            labels = batch['labels'].to(device)
-            input_lengths = batch['input_lengths'].to(device)
-            label_lengths = batch['label_lengths'].to(device)
-
-            # :)
-            optimizer.zero_grad()
-
-            # forward pass
-            output = model(spectrograms)
-            output = output.transpose(0, 1)
-
-            # compute loss and run backwards pass
-            loss = loss_fn(output, labels, input_lengths, label_lengths)
-            loss.backward()
-            
-            # clip gradients
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)  
-
-            optimizer.step()
-            total_loss += loss.item()
-        
-        train_loss = total_loss / len(train_loader)
-
-        # validation loop
-        model.eval()
-
-        total_val_loss = 0
-        total_wer = 0
-        total_cer = 0
-
-        with torch.no_grad():
-            for batch in tqdm(val_loader, desc=f"Epoch {epoch+1}/{args.epochs} - Validation"):
-                spectrograms = batch['spectrograms'].to(device)
-                labels = batch['labels'].to(device)
-                input_lengths = batch['input_lengths'].to(device)
-                label_lengths = batch['label_lengths'].to(device)
-
-                # compute loss
-                output = model(spectrograms)
-                loss = loss_fn(output.transpose(0, 1), labels, input_lengths, label_lengths)
-                total_val_loss += loss.item()
-
-                #decode and convert to string
-                decoded_text = alphabet.greedy_decode(output)
-
-                #compute wer & cer
-                ref = []
-                for label, length in zip(labels, label_lengths):
-                    clipped_label = label[:length]  # Clip the label using its length
-                    ref.append(alphabet.indices_to_text(clipped_label))
-
-                # log samples randomly
-                if random.randint(0, 5) == 5:
-                    rs = random.randint(0, len(decoded_text)-1)
-                    ts.add_sample(ref[rs], decoded_text[rs], epoch)
-
-                logging.debug(f' ref {ref} dec {decoded_text}')
-                total_wer += wer(ref, decoded_text)
-                total_cer += cer(ref, decoded_text)
-
-
-
-        val_loss = total_val_loss / len(val_loader)
-        cer_out = total_cer / len(val_loader)
-        wer_out = total_wer / len(val_loader)
-        
-        # Update learning rate
-        scheduler.step(val_loss)
-        
+        val_loss = val_metrics['val_loss']
+        cer_out = val_metrics['cer']
+        wer_out = val_metrics['wer']
 
         print_output = f"""
         ---
