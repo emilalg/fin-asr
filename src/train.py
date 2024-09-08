@@ -116,7 +116,7 @@ def main(args):
     labels = alphabet.get_labels()
     ts = utils.TensorBoardUtils(f'{args.output}log/', args.debug)
 
-    hf_datasets = HuggingFaceDataset(token=args.token, data_dir=args.data_dir + '/hf')
+    hf_datasets = HuggingFaceDataset(token=args.token, data_dir=args.data_dir + '/hf', predl=args.predl)
     
     # if debug use small dataset
     if args.debug:

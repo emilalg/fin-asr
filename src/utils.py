@@ -9,7 +9,7 @@ class params():
     
     def __init__(self):
         parser = argparse.ArgumentParser(description="Train a speech recognition model on Finnish Common Voice dataset")
-        parser.add_argument('--data_dir', type=str, default='data/', help='Directory for dataset cache')
+        parser.add_argument('--data_dir', type=str, default='data', help='Directory for dataset cache')
         parser.add_argument('--checkpoint_dir', type=str, default='checkpoints', help='Directory for saving checkpoints')
         parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
         parser.add_argument('--epochs', type=int, default=50, help='Number of epochs to train')
@@ -18,6 +18,7 @@ class params():
         parser.add_argument('--model_name', type=str, default="test1", help='Name of the model, used for output destination')
         parser.add_argument('--debug', type=bool, default=False, help='Use debug output + smaller dataset')
         parser.add_argument('--token', type=str, default='', help='huggingface token for dataset download')
+        parser.add_argument('--predl', type=bool, default=False, help='if hf dataset is pre downloaded')
         self.args = parser.parse_args()
 
         self.args.output = f'output/{self.args.model_name}/'
