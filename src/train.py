@@ -116,15 +116,15 @@ def main(args):
     labels = alphabet.get_labels()
     ts = utils.TensorBoardUtils(f'{args.output}log/', args.debug)
 
-    hf_datasets = HuggingFaceDataset(token=args.token)
+    hf_datasets = HuggingFaceDataset(token=args.token, data_dir=args.data_dir + '/hf')
     
     # if debug use small dataset
     if args.debug:
         train_set = hf_datasets.train_dataset
         val_set = hf_datasets.val_dataset
     else:
-        kp_dataset_train = KielipankkiDataset(mode='train')
-        kp_dataset_val = KielipankkiDataset(mode='validation')
+        kp_dataset_train = KielipankkiDataset(mode='train' , data_dir=args.data_dir + '/kielipankki')
+        kp_dataset_val = KielipankkiDataset(mode='validation' , data_dir=args.data_dir + '/kielipankki')
         train_set = ConcatDataset([hf_datasets.train_dataset, kp_dataset_train])
         val_set = ConcatDataset([hf_datasets.val_dataset, kp_dataset_val])
 
