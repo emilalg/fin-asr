@@ -17,6 +17,7 @@ class params():
         parser.add_argument('--num_workers', type=int, default=4, help='Number of worker processes for data loading')
         parser.add_argument('--model_name', type=str, default="test1", help='Name of the model, used for output destination')
         parser.add_argument('--debug', type=bool, default=False, help='Use debug output + smaller dataset')
+        parser.add_argument('--token', type=str, default='', help='huggingface token for dataset download')
         self.args = parser.parse_args()
 
         self.args.output = f'output/{self.args.model_name}/'

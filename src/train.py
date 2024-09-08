@@ -108,13 +108,15 @@ def validate(model, val_loader, device, epoch, loss_fn, alphabet, scheduler, ts)
 
 # Data and training loop
 def main(args):
+    if not torch.cuda.is_available():
+        raise Exception('Gpu not available')
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logging.info(f"Using device: {device}")
     alphabet = utils.alphabet()
     labels = alphabet.get_labels()
     ts = utils.TensorBoardUtils(f'{args.output}log/', args.debug)
 
-    hf_datasets = HuggingFaceDataset()
+    hf_datasets = HuggingFaceDataset(token=args.token)
     
     # if debug use small dataset
     if args.debug:

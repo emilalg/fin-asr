@@ -1,0 +1,48 @@
+Bootstrap: docker
+From: pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime
+
+%files
+    requirements.txt /requirements.txt
+
+%post
+
+    # Print Python and PyTorch versions
+    python --version
+    python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
+    python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
+
+    # Update and install basic utilities
+    apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        git \
+        curl \
+        ca-certificates \
+        libjpeg-dev \
+        libpng-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+    # Upgrade pip
+    pip install --no-cache-dir --upgrade pip
+
+    # Remove pywin32 from requirements.txt
+    sed -i '/pywin32/d' /requirements.txt
+
+    # Install Python packages from requirements.txt
+    pip install --no-cache-dir -r /requirements.txt
+
+    # Clean up
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+    rm /requirements.txt
+
+%runscript
+    python "$@"
+
+%environment
+    export LC_ALL=C
+
+%labels
+    Author Claude3.5Sonnet
+    Version v1
+    PyTorch_Version 2.3.1
+    CUDA_Version 12.1
