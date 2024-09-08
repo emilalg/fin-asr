@@ -1,4 +1,5 @@
 import logging
+import os
 import torch
 import torch.nn as nn
 import torch.utils
@@ -115,6 +116,10 @@ def main(args):
     alphabet = utils.alphabet()
     labels = alphabet.get_labels()
     ts = utils.TensorBoardUtils(f'{args.output}log/', args.debug)
+
+    logging.debug(f"Current working directory: {os.getcwd()}")
+    logging.debug(f"Data directory: {args.data_dir}")
+    logging.debug(f"Contents of data directory: {os.listdir(args.data_dir)}")
 
     hf_datasets = HuggingFaceDataset(token=args.token, data_dir=args.data_dir + '/hf', predl=args.predl)
     
