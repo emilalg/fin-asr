@@ -56,7 +56,7 @@ def process_universal_audio(batch):
         # read in label
         label = torch.tensor(alphabet.text_to_indices(alphabet.strip(item['sentence'])))
 
-        logging.info(f'Shape of mel {mel_spectrogram.shape} size {mel_spectrogram.size}')
+        logging.debug(f'Shape of mel {mel_spectrogram.shape} size {mel_spectrogram.size}')
 
         # append to list
         spectrograms.append(mel_spectrogram)

@@ -5,6 +5,9 @@ import logging
 
 # https://clarino.uib.no/comedi/editor/lb-2022052002
 # https://www.kielipankki.fi/download/fi-parliament-asr/fi-parliament-asr-v2/
+# dev-test is used for validaiton and test
+# rest are for training
+# this can only handle the pre-2020 formatted data
 class KielipankkiDataset(Dataset):
 
     def __init__(self, data_dir='data/kielipankki', mode='train'):

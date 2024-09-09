@@ -16,10 +16,18 @@ From: pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime
         build-essential \
         git \
         curl \
+        libsndfile1 \
+        libportaudio2 \
         ca-certificates \
         libjpeg-dev \
+        ffmpeg \
         libpng-dev && \
     rm -rf /var/lib/apt/lists/*
+
+    #set numba cache dir to prevent errors
+    #:D:D:D
+    mkdir -p /tmp/numba_cache
+    chmod 777 /tmp/numba_cache
 
     # Upgrade pip
     pip install --no-cache-dir --upgrade pip
@@ -40,6 +48,7 @@ From: pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime
 
 %environment
     export LC_ALL=C
+    export NUMBA_CACHE_DIR=/tmp/numba_cache
 
 %labels
     Author Claude3.5Sonnet
