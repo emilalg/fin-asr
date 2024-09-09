@@ -61,7 +61,7 @@ class KielipankkiDataset(Dataset):
         audio, sr = librosa.load(item['audio'])
 
         transcript = ''
-        with open(item['transcript']) as f:
+        with open(item['transcript'], 'r', encoding='utf-8') as f:
             transcript = f.read()
             f.close()
 

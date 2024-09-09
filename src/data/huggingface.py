@@ -47,8 +47,7 @@ class HuggingFaceDataset():
                 self.val_dataset = dataset['validation']
                 self.test_dataset = dataset['test']
             except:
-                dataset = datasets.load_from_disk(dataset_path=data_dir)
-                logging.error(f'Error in loading from disk {dataset.keys()}')
+                logging.error(f'Error in loading from disk aaaaaa')
             
 
 
