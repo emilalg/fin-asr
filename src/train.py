@@ -136,8 +136,8 @@ def main(args):
     val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=process_universal_audio)
 
     model = LSTMCTC(
-        input_dim=40,  # mels
-        hidden_dim=320,
+        input_size=40,  # mels
+        hidden_size=320,
         num_layers=4,
         num_classes=alphabet.length,
         dropout_rate=0.2
