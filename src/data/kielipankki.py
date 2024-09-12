@@ -47,7 +47,7 @@ class KielipankkiDataset(Dataset):
             case _:
                 raise Exception('Dataset mode not properly set')
         
-        logging.info(f'Kielipankki dataset length : {len(self.data)}')
+        logging.info(f'Kielipankki dataset length : {len(self.data)} with mode {mode}')
     
 
 

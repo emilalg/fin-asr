@@ -6,8 +6,7 @@ import torch.utils
 import random
 from tqdm import tqdm
 
-# from model.basic import FinnishLSTM
-from model.biLSTM import biLSTM
+from model.model import LSTMCTC
 
 import utils
 from torch.utils.data import DataLoader
@@ -136,14 +135,7 @@ def main(args):
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=process_universal_audio)
     val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=process_universal_audio)
 
-    # model = FinnishLSTM(
-    #     input_size=40,  # mels
-    #     hidden_size=512,
-    #     num_classes=alphabet.length,
-    #     dropout_rate=0.2
-    # ).to(device)
-
-    model = biLSTM(
+    model = LSTMCTC(
         input_dim=40,  # mels
         hidden_dim=320,
         num_layers=4,
