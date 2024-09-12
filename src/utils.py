@@ -59,7 +59,7 @@ class alphabet():
     def _greedy_decode_single(self, logits):
         indices = torch.argmax(logits, dim=-1).tolist()
         decoded = []
-        previous = None
+        previous = 0
         for index in indices:
             if index != previous and index != 0:  # 0 is blank
                 decoded.append(self.INDEX_TO_CHAR[index])
