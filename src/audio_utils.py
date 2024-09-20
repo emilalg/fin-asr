@@ -1,46 +1,37 @@
-import logging
-import numpy as np
-import torch
-from torch import nn
 import torchaudio
-import utils
+import torch
+from alphabet import Alphabet
 
-# joo
-def process_universal_audio(batch):
-
-    spectrograms = []
-    labels = []
-    input_lengths = []
-    label_lengths = []
-
-    alphabet = utils.alphabet()
-
-    # initialize mel converter
-    mel_spectrogram_converter = torchaudio.transforms.MelSpectrogram(
+mel_spectrogram_converter = torchaudio.transforms.MelSpectrogram(
         sample_rate=16000,
         n_fft=400,
         n_mels=40
-    )
+)
+
+alphabet = Alphabet()
+
+# from audio_utils
+def preprocess_audio(batch):
 
     max_input_length = 0
+    max_label_length = 0
 
-    # iterate over batch
+    audio = []
+    label = []
+    audio_length = []
+    label_length = []
+
     for item in batch:
-        
-        # read in waveform and convert to float
-        waveform = torch.tensor(item['audio']['array']).float()
+        audio_array = torch.tensor(item['audio']['array']).float()
 
-        # resample just in case
         sample_rate = item['audio']['sampling_rate']
         if sample_rate != 16000:
             resampler = torchaudio.transforms.Resample(sample_rate, 16000)
-            waveform = resampler(waveform)
+            audio_array = resampler(audio_array)
+        
+        audio_array = torchaudio.functional.preemphasis(audio_array)
 
-        # preemphasis for potentially better feature extraction
-        waveform = torchaudio.functional.preemphasis(waveform)
-
-        # convert to mel spectrogram
-        mel_spectrogram = mel_spectrogram_converter(waveform)
+        mel_spectrogram = mel_spectrogram_converter(audio_array)
 
         # Apply log to the mel spectrogram
         mel_spectrogram = torch.log(mel_spectrogram + 1e-9)
@@ -48,39 +39,24 @@ def process_universal_audio(batch):
         # Normalize the spectrogram
         mel_spectrogram = (mel_spectrogram - mel_spectrogram.mean()) / mel_spectrogram.std()
 
-        # Transpose the mel spectrogram
+        # Transpose the mel spectrogram to correct dimension (time, mels)
         mel_spectrogram = mel_spectrogram.transpose(0, 1)
 
-        max_input_length = max(max_input_length, mel_spectrogram.shape[1])
+        # eka bugi löyty (väärä shape (1))
+        max_input_length = max(max_input_length, mel_spectrogram.shape[0])
 
-        # read in label
-        label = torch.tensor(alphabet.text_to_indices(alphabet.strip(item['sentence'])))
+        sentence = torch.tensor(alphabet.text_to_array(str.lower(item['sentence'])))
 
-        logging.debug(f'Shape of mel {mel_spectrogram.shape} size {mel_spectrogram.size}')
+        max_label_length = max(max_label_length, len(sentence))
 
-        # append to list
-        spectrograms.append(mel_spectrogram)
-        labels.append(label)
-        input_lengths.append(mel_spectrogram.shape[1])
-        label_lengths.append(len(label))
-    
-    # pad spectrograms
-    padded_spectrograms = []
-    for spec in spectrograms:
-        pad_amount = max_input_length - spec.shape[0]
-        padded_spec = torch.nn.functional.pad(spec, (0, 0, 0, pad_amount))  # Pad in time dimension
-        padded_spectrograms.append(padded_spec)
+        audio.append(mel_spectrogram)
+        label.append(sentence)
+        audio_length.append(mel_spectrogram.shape[0])
+        label_length.append(len(sentence))
 
-    # Padding and stacking
-    spectrograms = torch.stack(padded_spectrograms)
-    labels = nn.utils.rnn.pad_sequence(labels, batch_first=True)
+    audio_padded = map(lambda x: torch.nn.functional.pad(x, (0, 0, 0, max_input_length - x.size(0))), audio)
 
-    if spectrograms.dim() != 3 or spectrograms.shape[2] != 40:
-        logging.warning(f"Unexpected spectrogram tensor shape. Expected (batch_size, variable_sequence_length, 40), got {spectrograms.shape}")
+    blank_index = len(alphabet.alphabet) - 1  # Index of the blank token
+    labels_padded = map(lambda x: torch.nn.functional.pad(x, (0, max_label_length - len(x)), value=blank_index), label)
 
-    return {
-        "spectrograms": spectrograms,
-        "labels": labels,
-        "input_lengths": torch.tensor(input_lengths),
-        "label_lengths": torch.tensor(label_lengths)
-    }
+    return (list(audio_padded), list(labels_padded), audio_length, label_length)

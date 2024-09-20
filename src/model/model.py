@@ -19,5 +19,4 @@ class LSTMCTC(nn.Module):
         # x shape: (batch_size, seq_len, input_size)
         x, _ = self.lstm(x)
         x = self.dropout(x)  
-        logits = self.fc(x)
-        return F.log_softmax(logits, dim=2)
+        return self.fc(x)

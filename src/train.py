@@ -1,5 +1,6 @@
 import logging
 import os
+import pickle
 import torch
 import torch.nn as nn
 import torch.utils
@@ -9,9 +10,11 @@ from tqdm import tqdm
 from model.model import LSTMCTC
 
 import utils
+from alphabet import Alphabet
 from torch.utils.data import DataLoader
 from torch import optim
-from audio_utils import process_universal_audio
+import torch.nn.functional as F
+from audio_utils import preprocess_audio
 from data.huggingface import HuggingFaceDataset
 from data.kielipankki import KielipankkiDataset
 from torch.utils.data import ConcatDataset
@@ -24,21 +27,25 @@ def train(model, train_loader, device, optimizer, loss_fn, epoch):
     total_loss = 0
 
     # run batch and accumulate loss (train)
-    for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{args.epochs} - Training"):
-        spectrograms = batch['spectrograms'].to(device)
-        labels = batch['labels'].to(device)
-        input_lengths = batch['input_lengths'].to(device)
-        label_lengths = batch['label_lengths'].to(device)
+    for batch_idx, batch in enumerate(tqdm(train_loader, desc=f"Epoch {epoch+1}/{args.epochs} - Training")):
+        audio_padded, labels_padded, audio_lengths, label_lengths = batch
+        
+        audio = torch.stack(audio_padded, dim=0).to(device)
+        # Shape: (batch_size, max_label_length)
+        labels = torch.stack(labels_padded, dim=0).to(device)
+        input_lengths = torch.tensor(audio_lengths).to(device)
+        target_lengths = torch.tensor(label_lengths).to(device)
 
-        # :)
         optimizer.zero_grad()
+        
+        # Forward pass
+        outputs = model(audio)
+        
+        # Shape: (max_input_length, batch_size, num_classes)
+        log_probs = F.log_softmax(outputs, dim=2).permute(1, 0, 2)
 
-        # forward pass
-        output = model(spectrograms)
-        output = output.transpose(0, 1)
-
-        # compute loss and run backwards pass
-        loss = loss_fn(output, labels, input_lengths, label_lengths)
+        # Compute loss
+        loss = loss_fn(log_probs, labels, input_lengths, target_lengths)
         loss.backward()
         
         # clip gradients
@@ -61,32 +68,51 @@ def validate(model, val_loader, device, epoch, loss_fn, alphabet, scheduler, ts)
     total_cer = 0
 
     with torch.no_grad():
-        for batch in tqdm(val_loader, desc=f"Epoch {epoch+1}/{args.epochs} - Validation"):
-            spectrograms = batch['spectrograms'].to(device)
-            labels = batch['labels'].to(device)
-            input_lengths = batch['input_lengths'].to(device)
-            label_lengths = batch['label_lengths'].to(device)
+        for batch_idx, batch in enumerate(tqdm(val_loader, desc=f"Epoch {epoch+1}/{args.epochs} - Validating")):
+            audio_padded, labels_padded, audio_lengths, label_lengths = batch
+   
+            audio = torch.stack(audio_padded, dim=0).to(device)
+            # Shape: (batch_size, max_label_length)
+            labels = torch.stack(labels_padded, dim=0).to(device)
+            input_lengths = torch.tensor(audio_lengths).to(device)
+            target_lengths = torch.tensor(label_lengths).to(device)
 
             # compute loss
-            output = model(spectrograms)
-            loss = loss_fn(output.transpose(0, 1), labels, input_lengths, label_lengths)
+            output = model(audio)
+            log_probs = F.log_softmax(output, dim=2).permute(1, 0, 2)
+            loss = loss_fn(log_probs, labels, input_lengths, target_lengths)
             total_val_loss += loss.item()
 
-            #decode model output to strings
-            decoded_text = alphabet.greedy_decode(output)
+            # Calculate log_probs for decoding (without permute)
+            log_probs_decode = F.log_softmax(output, dim=-1)
+            # greedy docoding
+            decoded_text = alphabet.decode(log_probs_decode, remove_blanks=True)
 
             #compute wer & cer
             ref = []
             for label, length in zip(labels, label_lengths):
-                clipped_label = label[:length]  # Clip the label using its length
-                ref.append(alphabet.indices_to_text(clipped_label))
+                clipped_label = label[:length]
+                ref.append(alphabet.array_to_text(clipped_label.cpu().numpy()))
 
-            # log samples randomly
-            if random.randint(0, 4) == 4:
+            logging.debug(f"""
+            ref0 {ref[0]}
+            dec0 {decoded_text[0]}
+            logprobs decoder shape {log_probs_decode.shape}
+            log_probs shape {log_probs.shape}
+            loss {loss.item()}
+            """)
+
+            # log samples (select different batch for every epoch)
+            if batch_idx == epoch:
                 rs = random.randint(0, len(decoded_text)-1)
                 ts.add_sample(ref[rs], decoded_text[rs], epoch)
+            elif epoch > len(val_loader):
+                # this block is not getting hit ever :D
+                if batch_idx == random.randint(0, len(val_loader)-1):
+                    rs = random.randint(0, len(decoded_text)-1)
+                    ts.add_sample(ref[rs], decoded_text[rs], epoch)
 
-            logging.debug(f' ref {ref} dec {decoded_text}')
+            
             total_wer += wer(ref, decoded_text)
             total_cer += cer(ref, decoded_text)
 
@@ -112,8 +138,7 @@ def main(args):
         raise Exception('Gpu not available')
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logging.info(f"Using device: {device}")
-    alphabet = utils.alphabet()
-    labels = alphabet.get_labels()
+    alphabet = Alphabet()
     ts = utils.TensorBoardUtils(f'{args.output}log/', args.debug)
 
     logging.debug(f"Current working directory: {os.getcwd()}")
@@ -132,20 +157,21 @@ def main(args):
         train_set = ConcatDataset([hf_datasets.train_dataset, kp_dataset_train])
         val_set = ConcatDataset([hf_datasets.val_dataset, kp_dataset_val])
 
-    train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=process_universal_audio)
-    val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=process_universal_audio)
+    train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=preprocess_audio)
+    val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=preprocess_audio)
 
     model = LSTMCTC(
         input_size=40,  # mels
         hidden_size=320,
         num_layers=4,
-        num_classes=alphabet.length,
+        num_classes=len(alphabet.alphabet),
         dropout_rate=0.2
     ).to(device)
 
     # initialize optimizer, loss_fn, and scheduler
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
-    loss_fn = nn.CTCLoss(blank=0, zero_infinity=True)
+    blank_index = len(alphabet.alphabet) - 1
+    loss_fn = nn.CTCLoss(blank=blank_index, zero_infinity=True)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=2)
 
     # training loop

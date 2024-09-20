@@ -74,6 +74,5 @@ class KielipankkiDataset(Dataset):
                 'array' : audio,
                 'sampling_rate' : sr
             },
-            'sampling_rate' : sr,
             'sentence' : transcript
         }
