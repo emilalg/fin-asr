@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.utils
 import random
+from torchinfo import summary
 from tqdm import tqdm
 
 from model.model import LSTMCTC
@@ -53,7 +54,14 @@ def train(model, train_loader, device, optimizer, loss_fn, epoch):
 
         optimizer.step()
         total_loss += loss.item()
-        
+
+        #perhaps helps avoid oom issue
+        del audio, labels, input_lengths, target_lengths
+        del outputs, log_probs
+        del loss
+        # maybe helps
+        torch.cuda.empty_cache()
+
     train_loss = total_loss / len(train_loader)
     return train_loss
 
@@ -168,10 +176,14 @@ def main(args):
         dropout_rate=0.2
     ).to(device)
 
+    #1024 placeholder for max sequence length, computing it would be too expensive
+    #due to the size of the dataset
+    summary(model, input_size=(args.batch_size, 1024, 40))
+
     # initialize optimizer, loss_fn, and scheduler
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
     blank_index = len(alphabet.alphabet) - 1
-    loss_fn = nn.CTCLoss(blank=blank_index, zero_infinity=True)
+    loss_fn = nn.CTCLoss(blank=blank_index, zero_infinity=True).to(device)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=2)
 
     # training loop

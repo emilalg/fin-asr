@@ -85,6 +85,7 @@ threadpoolctl
 #torch
 #torchaudio
 #torchvision
+torchinfo
 tornado
 tqdm
 traitlets
