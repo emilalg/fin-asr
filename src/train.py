@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import gc
 import torch
@@ -45,14 +46,31 @@ def train(model, train_loader, device, optimizer, loss_fn, epoch):
             
             # Shape: (max_input_length, batch_size, num_classes)
             log_probs = F.log_softmax(outputs, dim=2).permute(1, 0, 2)
+
+            # clamp log probs to potentially avoid nans and infs
+            # probabaly leads to a slight disruption in the gradients
+            log_probs = log_probs.clamp(min=torch.finfo(log_probs.dtype).min, max=torch.finfo(log_probs.dtype).max)
+
+            # skip batch if any still occur
+            if torch.any(torch.isnan(log_probs)) or torch.any(torch.isinf(log_probs)):
+                logging.error(f"NaN or infinity detected in log_probs for batch {batch_idx}")
+                continue  # Skip this batch and move to the next one
+
             # Compute loss
             loss = loss_fn(log_probs, labels, input_lengths, target_lengths)
+            
+            # check loss scalar for nan or inf just in case
+            loss_item = loss.item()
+            if math.isnan(loss_item) or math.isinf(loss_item):
+                logging.warning(f'NaN or infinity detected in loss scalar for batch {batch_idx}')
+                continue
+
             loss.backward()
             
             # clip gradients
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)  
             optimizer.step()
-            total_loss += loss.item()
+            total_loss += loss_item
 
         except torch.cuda.OutOfMemoryError as e:
             logging.warning(f"Ran out of memory in batch {batch_idx}. "

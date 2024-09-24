@@ -13,7 +13,7 @@ class params():
         parser.add_argument('--checkpoint_dir', type=str, default='checkpoints', help='Directory for saving checkpoints')
         parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
         parser.add_argument('--epochs', type=int, default=50, help='Number of epochs to train')
-        parser.add_argument('--learning_rate', type=float, default=0.0005, help='Learning rate for optimizer')
+        parser.add_argument('--learning_rate', type=float, default=0.0001, help='Learning rate for optimizer')
         parser.add_argument('--num_workers', type=int, default=4, help='Number of worker processes for data loading')
         parser.add_argument('--model_name', type=str, default="fin-asr", help='Name of the model, used for output destination')
         parser.add_argument('--debug', type=bool, default=False, help='Use debug output + smaller dataset')
