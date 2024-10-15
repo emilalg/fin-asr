@@ -89,6 +89,7 @@ torchinfo
 tornado
 tqdm
 traitlets
+transformers
 typing_extensions
 tzdata
 urllib3
