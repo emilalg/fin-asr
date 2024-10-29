@@ -12,10 +12,12 @@ This project implements an LSTM-based speech recognition system specifically tra
 
 ## Install dependencies
 ```
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 pip install -r requirements.txt
-```
 
+```
 exact versions used in training and running locally defined in freeze.txt
+notice pywin32 commented out in requirements.txt
 
 ### Directory Structure
 ```
