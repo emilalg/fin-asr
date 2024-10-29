@@ -1,0 +1,1 @@
+Both samples are from https://huggingface.co/datasets/mozilla-foundation/common_voice_17_0. More specifically from the finnish validation set (first 2 examples).

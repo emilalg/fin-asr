@@ -2,6 +2,7 @@ env/*
 env
 .env
 
+.gradio
 data/*
 output/*
 runs/*
