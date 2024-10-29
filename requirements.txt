@@ -23,6 +23,7 @@ flashlight-text
 fonttools
 frozenlist
 fsspec
+gradio
 grpcio
 huggingface-hub
 idna
