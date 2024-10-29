@@ -9,12 +9,13 @@ This project implements an LSTM-based speech recognition system specifically tra
 ## Prerequisites
 
 - Python 3.12.7+
-- PyTorch
-- torchaudio
-- transformers
-- datasets
 
-## Data Setup
+## Install dependencies
+```
+pip install -r requirements.txt
+```
+
+exact versions used in training and running locally defined in freeze.txt
 
 ### Directory Structure
 ```
